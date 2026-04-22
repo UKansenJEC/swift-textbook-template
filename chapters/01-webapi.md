@@ -335,13 +335,19 @@ disabledを外すと、空文字でも検索ボタンが押せてしまい、無
 
 ## 新しく学んだSwiftの文法・API
 
-| 項目 | 説明 | 使用例 |
-|------|------|--------|
-| 例：`Codable` | JSONデータとSwiftの構造体を相互変換するプロトコル | `struct Song: Codable { ... }` |
-| 例：`async/await` | 非同期処理を同期的に書ける構文 | `let data = try await URLSession.shared.data(from: url)` |
-| | | |
-| | | |
-| | | |
+| 項目                       | 説明                            | 使用例                                                           |
+| ------------------------ | ----------------------------- | ------------------------------------------------------------- |
+| `Codable`                | JSONデータとSwiftの構造体を相互変換するプロトコル | `struct Song: Codable { ... }`                                |
+| `Identifiable`           | リスト表示で各要素を識別するためのプロトコル        | `struct Song: Codable, Identifiable`                          |
+| computed property        | 値を保存せず、計算して返すプロパティ            | `var id: Int { trackId }`                                     |
+| `@State`                 | Viewの状態を保持し、値が変わると画面を再描画する    | `@State private var songs: [Song] = []`                       |
+| `guard let`              | 値が取り出せない場合に早めに処理を抜ける書き方       | `guard let url = URL(string: urlString) else { return }`      |
+| `async/await`            | 非同期処理を順番に読める形で書く構文            | `let (data, _) = try await URLSession.shared.data(from: url)` |
+| `URLSession.shared`      | 共通のネットワーク通信オブジェクト             | `URLSession.shared.data(from: url)`                           |
+| `Task`                   | 非同期処理を開始するための単位               | `Task { await searchMusic() }`                                |
+| `AsyncImage`             | URLから画像を非同期で読み込んで表示するView     | `AsyncImage(url: URL(string: song.artworkUrl100))`            |
+| `ContentUnavailableView` | データがないときの案内表示を簡単に作れるView      | `ContentUnavailableView("曲を検索してみよう", ...)`                    |
+
 
 ## 自分の実験メモ
 
