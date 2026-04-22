@@ -843,6 +843,52 @@ SwiftUIでは状態に応じたUI変更が基本のため。
 
 ### 詳細ビュー
 
+```swift
+struct SongDetailView: View {
+    let song: Song
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                AsyncImage(url: URL(string: song.artworkUrl100)) { image in
+                    image.resizable().aspectRatio(contentMode: .fit)
+                } placeholder: {
+                    ProgressView()
+                }
+                .frame(width: 200, height: 200)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .shadow(radius: 8)
+
+                Text(song.trackName)
+                    .font(.title2)
+                    .bold()
+                    .multilineTextAlignment(.center)
+
+                Text(song.artistName)
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+
+                if let albumName = song.collectionName {
+                    Text(albumName)
+                        .font(.subheadline)
+                        .foregroundStyle(.tertiary)
+                }
+
+                Text(song.priceText)
+                    .font(.headline)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.blue.opacity(0.1))
+                    .clipShape(Capsule())
+            }
+            .padding()
+        }
+        .navigationTitle("曲の詳細")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+```
+
 **何をしているか：**  
 選択した曲の詳細情報を表示する画面。  
 
