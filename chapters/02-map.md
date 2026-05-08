@@ -388,6 +388,7 @@ Setを使うことで、複数カテゴリを効率よく管理できる。ま�
 （教員から配布された模範コードをここに貼り付ける）
 
 ```swift
+
 // ============================================
 // 第2章（応用）：現在地を表示し、周辺検索する地図アプリ
 // ============================================
@@ -465,6 +466,17 @@ struct ContentView: View {
 
     let searchCategories = ["コンビニ", "カフェ", "レストラン", "駅"]
 
+    // 【修正】CLLocationCoordinate2D は Equatable ではないため、
+    // そのまま onChange で監視するとエラーになる。
+    // そこで、緯度・経度を String に変換して監視用の値にする。
+    var userLocationKey: String {
+        guard let location = locationManager.userLocation else {
+            return "none"
+        }
+
+        return "\(location.latitude),\(location.longitude)"
+    }
+
     var body: some View {
         ZStack(alignment: .top) {
             Map(position: $cameraPosition) {
@@ -495,8 +507,11 @@ struct ContentView: View {
         .onAppear {
             locationManager.requestPermission()
         }
-        .onChange(of: locationManager.userLocation) { _, newLocation in
-            if let location = newLocation {
+        // 【修正】locationManager.userLocation を直接監視しない。
+        // CLLocationCoordinate2D? は Equatable ではないため、
+        // String に変換した userLocationKey を監視する。
+        .onChange(of: userLocationKey) { _, _ in
+            if let location = locationManager.userLocation {
                 cameraPosition = .region(
                     MKCoordinateRegion(
                         center: location,
