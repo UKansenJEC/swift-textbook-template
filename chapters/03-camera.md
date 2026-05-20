@@ -331,14 +331,17 @@ SwiftUI の View 構造体だけでは delegate メソッドを書けないた�
 ## AIに聞いて特に理解が深まった質問 TOP3
 
 1. **質問：UIViewControllerRepresentable はなぜ必要なのか？**
+ 
    **得られた理解：**
    SwiftUI だけでは UIKit の ViewController を直接扱えないため、橋渡しとして必要だと分かった。
 
-3. **質問：Coordinator パターンは何のためにあるのか？**
+2. **質問：Coordinator パターンは何のためにあるのか？**
+   
    **得られた理解：**
    delegate を受け取るための仕組みで、UIImagePickerController と SwiftUI を接続していると理解できた。
 
-5. **質問：なぜ async/await を使うのか？**
+3. **質問：なぜ async/await を使うのか？**
+   
    **得られた理解：**
    画像読み込みには時間がかかる場合があるため、非同期処理にして画面が止まらないようにしていると分かった。
 
