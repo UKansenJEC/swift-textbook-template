@@ -9,8 +9,6 @@
 
 ## 模範コードの全体像
 
-（教員から配布された模範コードをここに貼り付ける）
-
 ```swift
 // ============================================
 // 第6章（基本）：ジェスチャーで操作するカードアプリ
@@ -545,3 +543,593 @@ Button("リセット") {
 この章では、SwiftUIでタップ、長押し、ドラッグ、拡大縮小、回転などのジェスチャーを扱う方法を学んだ。ジェスチャーでは、指の動きに合わせて画面をリアルタイムに変化させることが重要である。
 
 特に、ドラッグや拡大縮小、回転では、現在の状態と前回までの状態を分けて管理する必要があると分かった。`offset` と `lastOffset`、`scale` と `lastScale`、`angle` と `lastAngle` のように、操作中の値と確定した値を分けることで、自然な操作感を作ることができる。
+
+# 第6章：ジェスチャー操作・応用
+
+## この章で学ぶこと
+
+応用編では、ドラッグジェスチャーを使って、Tinder風のスワイプカードUIを作る。カードを左右に動かし、一定以上スワイプされたらLIKEまたはNOPEとして判定する仕組みを学ぶ。
+また、ジェスチャー操作では、現在の位置・倍率・角度だけでなく、前回の操作結果を保存しておくことが重要である。offset と lastOffset、scale と lastScale、angle と lastAngle のように、操作中の値と確定した値を分けて管理する考え方を理解する。
+
+
+## 模範コードの全体像
+
+```swift
+// ============================================
+// 第6章（応用）：Tinder風スワイプカードUI
+// ============================================
+// ドラッグジェスチャーとアニメーションを組み合わせて、
+// カードを左右にスワイプして仕分けるUIを作ります。
+// ============================================
+
+import SwiftUI
+
+// MARK: - データモデル
+
+struct Animal: Identifiable {
+    let id = UUID()
+    let name: String
+    let emoji: String
+    let description: String
+    let color: Color
+}
+
+extension Animal {
+    static let sampleData: [Animal] = [
+        Animal(name: "ネコ", emoji: "🐱", description: "自由気ままなマイペース派", color: .orange),
+        Animal(name: "イヌ", emoji: "🐶", description: "忠実で人懐っこい", color: .brown),
+        Animal(name: "ウサギ", emoji: "🐰", description: "おとなしくてかわいい", color: .pink),
+        Animal(name: "ペンギン", emoji: "🐧", description: "南極のタキシード紳士", color: .cyan),
+        Animal(name: "パンダ", emoji: "🐼", description: "笹が大好きなのんびり屋", color: .green),
+        Animal(name: "フクロウ", emoji: "🦉", description: "夜型の知恵者", color: .purple),
+    ]
+}
+
+// MARK: - メインビュー
+
+struct ContentView: View {
+    @State private var animals: [Animal] = Animal.sampleData
+    @State private var likedAnimals: [Animal] = []
+    @State private var dislikedAnimals: [Animal] = []
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("好きな動物は？")
+                .font(.title2)
+                .bold()
+
+            // スコア表示
+            HStack(spacing: 40) {
+                Label("\(dislikedAnimals.count)", systemImage: "hand.thumbsdown")
+                    .foregroundStyle(.red)
+                Label("\(likedAnimals.count)", systemImage: "hand.thumbsup")
+                    .foregroundStyle(.green)
+            }
+            .font(.headline)
+
+            // カードスタック
+            ZStack {
+                if animals.isEmpty {
+                    VStack(spacing: 12) {
+                        Text("完了！")
+                            .font(.largeTitle)
+
+                        Button("もう一度") {
+                            animals = Animal.sampleData.shuffled()
+                            likedAnimals = []
+                            dislikedAnimals = []
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                } else {
+                    ForEach(animals.reversed()) { animal in
+                        SwipeCardView(animal: animal) { direction in
+                            removeCard(animal: animal, direction: direction)
+                        }
+                    }
+                }
+            }
+            .frame(height: 400)
+
+            // 手動ボタン
+            if !animals.isEmpty {
+                HStack(spacing: 40) {
+                    Button {
+                        if let top = animals.last {
+                            removeCard(animal: top, direction: .left)
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 50))
+                            .foregroundStyle(.red)
+                    }
+
+                    Button {
+                        if let top = animals.last {
+                            removeCard(animal: top, direction: .right)
+                        }
+                    } label: {
+                        Image(systemName: "heart.circle.fill")
+                            .font(.system(size: 50))
+                            .foregroundStyle(.green)
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding()
+    }
+
+    func removeCard(animal: Animal, direction: SwipeDirection) {
+        withAnimation(.spring(duration: 0.3)) {
+            animals.removeAll { $0.id == animal.id }
+        }
+
+        switch direction {
+        case .left:
+            dislikedAnimals.append(animal)
+        case .right:
+            likedAnimals.append(animal)
+        }
+    }
+}
+
+// MARK: - スワイプ方向
+
+enum SwipeDirection {
+    case left, right
+}
+
+// MARK: - スワイプカードビュー
+
+struct SwipeCardView: View {
+    let animal: Animal
+    let onSwipe: (SwipeDirection) -> Void
+
+    @State private var offset: CGSize = .zero
+    @State private var rotation: Double = 0
+
+    private let swipeThreshold: CGFloat = 100
+
+    private var swipeProgress: CGFloat {
+        min(abs(offset.width) / swipeThreshold, 1.0)
+    }
+
+    var body: some View {
+        ZStack {
+            // カード背景
+            RoundedRectangle(cornerRadius: 20)
+                .fill(animal.color.opacity(0.15))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(animal.color.opacity(0.3), lineWidth: 2)
+                )
+
+            // カード内容
+            VStack(spacing: 16) {
+                Text(animal.emoji)
+                    .font(.system(size: 80))
+
+                Text(animal.name)
+                    .font(.title)
+                    .bold()
+
+                Text(animal.description)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
+
+            // いいね / NG オーバーレイ
+            if offset.width > 0 {
+                Text("LIKE")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundStyle(.green)
+                    .opacity(swipeProgress)
+                    .rotationEffect(.degrees(-20))
+                    .position(x: 80, y: 60)
+            } else if offset.width < 0 {
+                Text("NOPE")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundStyle(.red)
+                    .opacity(swipeProgress)
+                    .rotationEffect(.degrees(20))
+                    .position(x: 240, y: 60)
+            }
+        }
+        .frame(width: 300, height: 380)
+        .shadow(color: .black.opacity(0.1), radius: 8)
+        .offset(offset)
+        .rotationEffect(.degrees(rotation))
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    offset = value.translation
+                    rotation = Double(value.translation.width / 20)
+                }
+                .onEnded { value in
+                    if value.translation.width > swipeThreshold {
+                        // 右スワイプ → LIKE
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            offset = CGSize(width: 500, height: 0)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            onSwipe(.right)
+                        }
+                    } else if value.translation.width < -swipeThreshold {
+                        // 左スワイプ → NOPE
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            offset = CGSize(width: -500, height: 0)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            onSwipe(.left)
+                        }
+                    } else {
+                        // 元に戻す
+                        withAnimation(.spring) {
+                            offset = .zero
+                            rotation = 0
+                        }
+                    }
+                }
+        )
+    }
+}
+
+#Preview {
+    ContentView()
+}
+```
+
+### このアプリは何をするものか
+
+この応用編では、動物カードを左右にスワイプして、「好き」と「好きではない」に仕分けるアプリを作る。
+
+カードを右にスワイプすると `LIKE` として記録され、左にスワイプすると `NOPE` として記録される。また、画面下のボタンから手動で「いいね」や「NG」を選ぶこともできる。すべてのカードを仕分けると「完了！」と表示され、もう一度最初から試すことができる。
+
+基本編で学んだドラッグジェスチャーを、実際のアプリらしいUIに応用した例である。
+
+---
+
+## コードの詳細解説
+
+### データモデルとサンプルデータ
+
+```swift
+struct Animal: Identifiable {
+    let id = UUID()
+    let name: String
+    let emoji: String
+    let description: String
+    let color: Color
+}
+```
+
+```swift
+extension Animal {
+    static let sampleData: [Animal] = [
+        Animal(name: "ネコ", emoji: "🐱", description: "自由気ままなマイペース派", color: .orange),
+        Animal(name: "イヌ", emoji: "🐶", description: "忠実で人懐っこい", color: .brown),
+        Animal(name: "ウサギ", emoji: "🐰", description: "おとなしくてかわいい", color: .pink)
+    ]
+}
+```
+
+**何をしているか：**
+動物カードに表示する情報を `Animal` という構造体でまとめている。名前、絵文字、説明文、カードの色を一つのデータとして扱っている。
+
+**なぜこう書くのか：**
+カードに表示する内容をバラバラの変数で管理すると、どの名前とどの説明が対応しているのか分かりにくくなる。`Animal` として一つにまとめることで、カード一枚分の情報を扱いやすくしている。また、`Identifiable` に準拠しているため、`ForEach` でカード一覧を表示するときに、それぞれのカードを区別できる。
+
+**もしこう書かなかったら：**
+`Identifiable` がないと、`ForEach` で複数のカードを表示するときに、SwiftUIがどのカードがどのデータなのか判断しにくくなる。また、名前や説明文を別々の配列で管理すると、データの対応関係が崩れやすくなる。
+
+---
+
+### カードの状態管理
+
+```swift
+@State private var animals: [Animal] = Animal.sampleData
+@State private var likedAnimals: [Animal] = []
+@State private var dislikedAnimals: [Animal] = []
+```
+
+**何をしているか：**
+まだ表示するカード、好きとして選んだカード、好きではないとして選んだカードを、それぞれ別の配列で管理している。
+
+**なぜこう書くのか：**
+スワイプUIでは、現在残っているカードと、すでに仕分けた結果を分けて管理する必要がある。`animals` からカードを削除し、右スワイプなら `likedAnimals`、左スワイプなら `dislikedAnimals` に追加することで、画面上のカード枚数とスコア表示を連動させている。
+
+**もしこう書かなかったら：**
+残りカードと結果を同じ配列で管理すると、どのカードがまだ未処理で、どのカードがすでに選ばれたのか分かりにくくなる。また、好き・NGの数を画面に表示することも難しくなる。
+
+---
+
+### カードスタックの表示
+
+```swift
+ZStack {
+    if animals.isEmpty {
+        VStack(spacing: 12) {
+            Text("完了！")
+                .font(.largeTitle)
+
+            Button("もう一度") {
+                animals = Animal.sampleData.shuffled()
+                likedAnimals = []
+                dislikedAnimals = []
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    } else {
+        ForEach(animals.reversed()) { animal in
+            SwipeCardView(animal: animal) { direction in
+                removeCard(animal: animal, direction: direction)
+            }
+        }
+    }
+}
+.frame(height: 400)
+```
+
+**何をしているか：**
+`ZStack` を使って、複数のカードを重ねて表示している。カードが残っている場合は `SwipeCardView` を表示し、すべてのカードがなくなった場合は「完了！」と「もう一度」ボタンを表示する。
+
+**なぜこう書くのか：**
+Tinder風のUIでは、カードが一枚ずつ並ぶのではなく、上に重なって表示される必要がある。そのため、縦や横に並べる `VStack` や `HStack` ではなく、重ねて表示する `ZStack` を使っている。また、カードがなくなったときの画面も同じ場所に表示することで、自然に完了画面へ切り替えられる。
+
+**もしこう書かなかったら：**
+`ZStack` を使わないと、カードが一覧のように並んでしまい、スワイプカードUIらしく見えなくなる。また、`animals.isEmpty` の判定がないと、すべてのカードを仕分けた後に何も表示されず、ユーザーが次に何をすればよいか分かりにくくなる。
+
+---
+
+### `animals.reversed()` と一番上のカード
+
+```swift
+ForEach(animals.reversed()) { animal in
+    SwipeCardView(animal: animal) { direction in
+        removeCard(animal: animal, direction: direction)
+    }
+}
+```
+
+```swift
+if let top = animals.last {
+    removeCard(animal: top, direction: .left)
+}
+```
+
+**何をしているか：**
+`animals.reversed()` を使って、配列の後ろにあるカードが画面の上に見えるようにしている。手動ボタンでは、画面で一番上に見えている `animals.last` のカードを削除している。
+
+**なぜこう書くのか：**
+`ZStack` では、後から描画されたビューほど前面に表示される。そのため、配列をそのまま表示すると、意図したカードの重なり順にならない場合がある。`animals.reversed()` で表示順を調整し、さらに手動ボタンでは `animals.last` を対象にすることで、画面の一番上に見えているカードと削除されるカードを一致させている。
+
+**もしこう書かなかったら：**
+表示されているカードと、実際に削除されるカードがずれてしまうことがある。たとえば、画面ではネコのカードが一番上に見えているのに、ボタンを押すと下に隠れている別のカードが消えてしまう。この場合、ユーザーの操作とアプリの動きが一致しないため、不自然なUIになる。
+
+---
+
+### スワイプ方向の管理
+
+```swift
+enum SwipeDirection {
+    case left, right
+}
+```
+
+```swift
+func removeCard(animal: Animal, direction: SwipeDirection) {
+    withAnimation(.spring(duration: 0.3)) {
+        animals.removeAll { $0.id == animal.id }
+    }
+
+    switch direction {
+    case .left:
+        dislikedAnimals.append(animal)
+    case .right:
+        likedAnimals.append(animal)
+    }
+}
+```
+
+**何をしているか：**
+左スワイプか右スワイプかを `SwipeDirection` で表し、方向に応じてカードを `likedAnimals` または `dislikedAnimals` に追加している。
+
+**なぜこう書くのか：**
+左と右を文字列や数字で表すと、意味が分かりにくく、間違いも起きやすい。`SwipeDirection.left`、`SwipeDirection.right` のように書くことで、どちらの方向なのかがコード上で分かりやすくなる。
+
+**もしこう書かなかったら：**
+方向を `"left"` や `"right"` のような文字列で管理すると、スペルミスをしても気づきにくい。数字で管理すると、`0` が左なのか右なのか読み返したときに分かりにくくなる。`enum` を使うことで、コードの意味がはっきりする。
+
+---
+
+### スワイプ中のカードの動き
+
+```swift
+@State private var offset: CGSize = .zero
+@State private var rotation: Double = 0
+
+private let swipeThreshold: CGFloat = 100
+```
+
+```swift
+.gesture(
+    DragGesture()
+        .onChanged { value in
+            offset = value.translation
+            rotation = Double(value.translation.width / 20)
+        }
+)
+```
+
+**何をしているか：**
+ユーザーがカードをドラッグしている間、カードの位置を `offset` で動かし、横方向の移動量に応じて `rotation` で少し傾けている。また、`swipeThreshold` は、どのくらい横に動かしたらスワイプ成功と判定するかの基準になっている。
+
+**なぜこう書くのか：**
+カードが指の動きに合わせて移動することで、ユーザーは自分がカードを操作していることを直感的に理解できる。また、横に動かした量に応じてカードを少し回転させることで、実際にカードを払っているような見た目になる。`swipeThreshold` を用意することで、少し触っただけではカードが消えず、一定以上スワイプしたときだけ判定できる。
+
+**もしこう書かなかったら：**
+`offset` がなければ、指でドラッグしてもカードが動かない。`rotation` がなければ動きは分かるが、カードを払うような自然な見た目が弱くなる。また、`swipeThreshold` が小さすぎると誤操作が増え、大きすぎると強くスワイプしないと反応しなくなる。
+
+---
+
+### LIKE / NOPE オーバーレイ
+
+```swift
+private var swipeProgress: CGFloat {
+    min(abs(offset.width) / swipeThreshold, 1.0)
+}
+```
+
+```swift
+if offset.width > 0 {
+    Text("LIKE")
+        .font(.system(size: 40, weight: .bold))
+        .foregroundStyle(.green)
+        .opacity(swipeProgress)
+        .rotationEffect(.degrees(-20))
+        .position(x: 80, y: 60)
+} else if offset.width < 0 {
+    Text("NOPE")
+        .font(.system(size: 40, weight: .bold))
+        .foregroundStyle(.red)
+        .opacity(swipeProgress)
+        .rotationEffect(.degrees(20))
+        .position(x: 240, y: 60)
+}
+```
+
+**何をしているか：**
+カードを右に動かすと `LIKE`、左に動かすと `NOPE` の文字を表示している。横方向に大きく動かすほど、文字がはっきり表示される。
+
+**なぜこう書くのか：**
+スワイプ中に現在の判定方向が見えると、ユーザーは自分の操作が「好き」なのか「NG」なのか分かりやすい。`swipeProgress` を使って透明度を変えることで、少し動かしたときは薄く、大きく動かしたときは濃く表示できる。
+
+**もしこう書かなかったら：**
+LIKEやNOPEの表示がない場合、カードを動かしている途中で、どちらの判定になるのか分かりにくい。`opacity` を固定にすると、少し動かしただけでも文字が強く表示されてしまい、動きの変化が分かりにくくなる。
+
+---
+
+### スワイプ終了時の判定
+
+```swift
+.onEnded { value in
+    if value.translation.width > swipeThreshold {
+        withAnimation(.easeOut(duration: 0.3)) {
+            offset = CGSize(width: 500, height: 0)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            onSwipe(.right)
+        }
+    } else if value.translation.width < -swipeThreshold {
+        withAnimation(.easeOut(duration: 0.3)) {
+            offset = CGSize(width: -500, height: 0)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            onSwipe(.left)
+        }
+    } else {
+        withAnimation(.spring) {
+            offset = .zero
+            rotation = 0
+        }
+    }
+}
+```
+
+**何をしているか：**
+指を離したときに、カードの移動量を見て右スワイプか左スワイプかを判定している。しきい値を超えていればカードを画面外へ飛ばし、その後で `onSwipe` を呼んでカードを削除する。しきい値に届かなければ、カードを元の位置に戻している。
+
+**なぜこう書くのか：**
+スワイプ操作では、指を動かしている途中ではなく、指を離した瞬間に最終判定を行う必要がある。`swipeThreshold` を使うことで、少しだけ動かした場合はキャンセルし、十分に動かした場合だけLIKEやNOPEとして処理できる。また、すぐにカードを削除せず、先に画面外へ飛ぶアニメーションを見せることで、操作結果が自然に見える。
+
+**もしこう書かなかったら：**
+`onEnded` で判定しないと、カードをどのタイミングで削除するのか決められない。`DispatchQueue.main.asyncAfter` を使わずにすぐ削除すると、カードが画面外へ飛ぶアニメーションを見る前に消えてしまう。逆に、しきい値判定がないと、少し横に動かしただけでもLIKEやNOPEになってしまう。
+
+---
+
+### 手動ボタンによる操作
+
+```swift
+Button {
+    if let top = animals.last {
+        removeCard(animal: top, direction: .left)
+    }
+} label: {
+    Image(systemName: "xmark.circle.fill")
+        .font(.system(size: 50))
+        .foregroundStyle(.red)
+}
+```
+
+```swift
+Button {
+    if let top = animals.last {
+        removeCard(animal: top, direction: .right)
+    }
+} label: {
+    Image(systemName: "heart.circle.fill")
+        .font(.system(size: 50))
+        .foregroundStyle(.green)
+}
+```
+
+**何をしているか：**
+カードをスワイプしなくても、下のボタンから左スワイプや右スワイプと同じ処理を実行できるようにしている。赤いボタンはNG、緑のボタンはLIKEとして扱う。
+
+**なぜこう書くのか：**
+すべてのユーザーがスワイプ操作だけで使うとは限らないため、ボタンでも同じ操作ができるようにしている。また、ボタンでも `removeCard` を使うことで、スワイプ時と同じ処理を再利用している。
+
+**もしこう書かなかったら：**
+スワイプ操作に慣れていないユーザーは使いにくくなる。また、ボタン用に別の処理を書いてしまうと、スワイプとボタンで結果の管理方法がずれる可能性がある。同じ `removeCard` を使うことで、処理を一つにまとめられる。
+
+---
+
+## 応用編で新しく学んだSwiftの文法・API
+
+| 項目                              | 説明                | 使用例                                                     |
+| ------------------------------- | ----------------- | ------------------------------------------------------- |
+| `Identifiable`                  | データを一意に識別できるようにする | `struct Animal: Identifiable`                           |
+| `UUID()`                        | 一意のIDを作る          | `let id = UUID()`                                       |
+| `enum`                          | 決まった種類の値を定義する     | `enum SwipeDirection { case left, right }`              |
+| `ZStack`                        | ビューを重ねて表示する       | `ZStack { ForEach(...) { ... } }`                       |
+| `.reversed()`                   | 配列の表示順を逆にする       | `ForEach(animals.reversed())`                           |
+| `.removeAll`                    | 条件に合う要素を配列から削除する  | `animals.removeAll { $0.id == animal.id }`              |
+| `.opacity`                      | ビューの透明度を変える       | `.opacity(swipeProgress)`                               |
+| `.position`                     | ビューを指定した位置に配置する   | `.position(x: 80, y: 60)`                               |
+| `DispatchQueue.main.asyncAfter` | 少し遅らせて処理を実行する     | `DispatchQueue.main.asyncAfter(deadline: .now() + 0.3)` |
+
+## 応用編の自分の実験メモ
+
+**実験1：**
+
+* やったこと：`swipeThreshold` を `100` から `30` に変更した。
+* 結果：少し横に動かしただけでLIKEやNOPEとして判定されるようになった。
+* わかったこと：しきい値が小さすぎると誤操作が増えるため、スワイプ判定には適切な基準が必要だと分かった。
+
+**実験2：**
+
+* やったこと：`DispatchQueue.main.asyncAfter` を使わず、すぐに `onSwipe` を呼ぶようにした。
+* 結果：カードが画面外に飛ぶ前に消えてしまい、動きが急に見えた。
+* わかったこと：アニメーションを見せてからデータを削除することで、操作結果が自然に伝わることが分かった。
+
+**実験3：**
+
+* やったこと：手動ボタンで `animals.last` ではなく `animals.first` を削除するようにした。
+* 結果：画面の一番上に見えているカードではなく、下に隠れているカードが消えることがあった。
+* わかったこと：`ZStack` の重なり順と、配列のどの要素を操作するかを合わせる必要があると分かった。
+
+## 応用編でAIに聞いて特に理解が深まった質問 TOP3
+
+1. **質問：なぜカードを表示するときに `animals.reversed()` を使うのか？**
+   **得られた理解：**
+   `ZStack` では後から描画されたビューが前面に表示されるため、配列の順番と見た目の重なり順を調整する必要がある。`animals.reversed()` を使うことで、意図したカードが上に見えるようにしている。
+
+2. **質問：なぜ手動ボタンでは `animals.last` を削除するのか？**
+   **得られた理解：**
+   画面の一番上に見えているカードを操作対象にするためである。`animals.first` を使うと、表示上は下に隠れているカードを削除してしまう場合があり、ユーザーの見た目と処理が一致しなくなる。
+
+3. **質問：なぜ `onSwipe` をすぐ呼ばず、`DispatchQueue.main.asyncAfter` で少し遅らせるのか？**
+   **得られた理解：**
+   先にカードが画面外へ飛ぶアニメーションを見せ、その後で配列から削除するためである。すぐに削除すると、アニメーションを見る前にカードが消えてしまい、スワイプした感覚が弱くなる。
