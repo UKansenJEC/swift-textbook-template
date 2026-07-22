@@ -154,7 +154,7 @@ struct SongRow: View {
 ### データモデル（Codable構造体）
 
 ```swift
-/struct SearchResponse: Codable {
+struct SearchResponse: Codable {
     let results: [Song]
 }
 
@@ -175,9 +175,9 @@ SearchResponseはAPI全体のレスポンスを表し、その中のresultsに�
 Songは1曲分の情報を表していて、曲ID、曲名、アーティスト名、画像URLなどを持っている。
 
 **なぜこう書くのか：**
-Codableをつけることで、JSONDecoderを使ってJSONをそのままSwiftの構造体に変換できるからである。
-手作業で1つずつ取り出すよりも安全で見通しがよい。
-また、SongにIdentifiableをつけ、var id: Int { trackId }とすることで、Listの中で各要素を区別できるようにしている。let id: Intを別に持たせるのではなく、すでに存在するtrackIdを利用しているので、情報の重複を避けられる。
+APIから取得したJSONデータをSwiftのアプリ内で扱うためには、JSONの構造に対応したデータ型を用意する必要がある。`Codable`を付けることで、`JSONDecoder`がJSONのキーとSwiftのプロパティを対応させ、自動的にデータを構造体へ変換できる。
+もし`Codable`を使わずに処理する場合は、JSONの値を一つずつ確認して取り出し、型を変換する処理を書く必要がある。`Codable`を利用することで、そのような処理を減らし、型の違いや値の取り出しミスを防ぎやすくなる。
+また、`Song`を`Identifiable`に準拠させることで、SwiftUIの`List`が各曲を別々のデータとして識別できるようになる。このコードでは、APIから取得した`trackId`が曲ごとに異なるため、それを`id`として利用している。新しいIDを別に作らず、すでに存在する値を使うことで、同じ情報を重複して持たずに済む。
 
 **もしこう書かなかったら：**
 Codableがなければ、JSONDecoderでそのままデコードできず、データを扱うのがかなり面倒になる。
