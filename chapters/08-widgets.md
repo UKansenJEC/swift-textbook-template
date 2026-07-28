@@ -728,9 +728,9 @@ Multiple commands produce QuoteWidgetExtension.appex
 
 今回の作業では、コードの内容だけでなく、Widget Extensionの追加、不要なファイルの削除、Target Membership、`@main`の重複など、プロジェクト設定も重要であることを学んだ。エラーが大量に表示されても、最初の原因はTargetの重複やファイルの所属設定など、少数の問題である場合が多い。今後Widgetを作成するときは、コードだけでなくTargetの構成も確認したい。
 
-## 発表メモ：
+# 発表メモ：
 
-# ① 开始（约30秒）
+## ① 开始（约30秒）
 
 【操作】
 
@@ -742,7 +742,7 @@ Multiple commands produce QuoteWidgetExtension.appex
 
 ---
 
-# ② アプリの説明（约30秒）
+## ② アプリの説明（约30秒）
 
 【操作】
 
@@ -754,7 +754,7 @@ Multiple commands produce QuoteWidgetExtension.appex
 
 ---
 
-# ③ TimelineProvider（约1分40秒）
+## ③ TimelineProvider（约1分40秒）
 
 【操作】
 
@@ -788,7 +788,7 @@ Multiple commands produce QuoteWidgetExtension.appex
 
 最後はgetTimelineです。このメソッドが一番重要です。ここでは今日表示する名言を作成し、次に更新する時刻も設定しています。今回のプログラムでは、次の日の0時になったら新しい名言へ更新するようにしています。そのため、毎日自動で違う名言が表示されます。
 
-# ④ Target Membership（约1分钟20秒）
+## ④ Target Membership（约1分钟20秒）
 
 【操作】
 
@@ -801,7 +801,7 @@ Multiple commands produce QuoteWidgetExtension.appex
 
 ---
 
-# ⑤ 今日の名言を選ぶ仕組み（约40秒）
+## ⑤ 今日の名言を選ぶ仕組み（约40秒）
 
 【操作】
 
@@ -813,7 +813,7 @@ Multiple commands produce QuoteWidgetExtension.appex
 
 ---
 
-# ⑥ まとめ（约40秒）
+## ⑥ まとめ（约40秒）
 
 
 最後にまとめです。
